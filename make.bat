@@ -1,0 +1,1 @@
+C:\WINDOWS\Microsoft.NET\Framework\v3.5\msbuild.exe .\src\twt.csproj /property:Configuration=Release
