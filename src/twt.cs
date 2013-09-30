@@ -9,18 +9,21 @@ using System.Drawing;
 
 namespace s7.twt
 {
-    public static class twt
-    {
+	public static class twt
+	{
 		public static readonly string ConsumerKey = "duNqYCc4BeGTwlQpbsZJGQ";
 		public static readonly string ConsumerSecret = "UaQiKarT4ZZE0VlETRUyzrIymuFr7erArbSD5orb0N8";
 				
-        static void Main(string[] args)
-        {
-            Growler.Initialize();
-            try
-            {
-                if (args.Contains("-config"))
-                {
+		static void Main(string[] args)
+		{
+			Growler.Initialize();
+			bool quiet = false;
+			try
+			{
+				if (args.Contains("-q") || args.Contains("-quiet"))
+					quiet = true;
+				if (args.Contains("-config"))
+				{
 					OAuthTokenResponse requestToken = OAuthUtility.GetRequestToken(ConsumerKey, ConsumerSecret, "oob");
 					Uri authorizationUri = OAuthUtility.BuildAuthorizationUri(requestToken.Token);
 					System.Diagnostics.Process.Start(authorizationUri.AbsoluteUri);
@@ -32,16 +35,23 @@ namespace s7.twt
 						cfg.Save();
 					}
 					
-                    if (!Growler.Growl(Growler.GeneralNotification, "Configuration Complete", "The configuration for twt is now set."))
-                        System.Windows.Forms.MessageBox.Show("The configuration for twt is now set.", "Configuration Complete");
-                }
-                else
-                {
-                    if (!Cfg.cmDoConfig.Exists)
-                        throw new System.IO.FileNotFoundException("Could not find the configuration file with authentication information.\nPlease run twt with the -config argument.",Cfg.cmDoConfig.ConfigPath);
-                    Cfg.cmDoConfig cfg = Cfg.cmDoConfig.Load();
+					if (!Growler.Growl(Growler.GeneralNotification, "Configuration Complete", "The configuration for twt is now set."))
+						System.Windows.Forms.MessageBox.Show("The configuration for twt is now set.", "Configuration Complete");
+				}
+				else
+				{
+					if (!Cfg.cmDoConfig.Exists)
+						throw new System.IO.FileNotFoundException("Could not find the configuration file with authentication information.\nPlease run twt with the -config argument.",Cfg.cmDoConfig.ConfigPath);
+					Cfg.cmDoConfig cfg = Cfg.cmDoConfig.Load();
 					
-					string tweet = String.Join(" ",args);
+					string tweet = string.Empty;
+					foreach (string word in args)
+					{
+						if (word.StartsWith("-") && string.IsNullOrEmpty(tweet))
+							continue;
+						tweet = string.Concat(tweet, word, " ");
+					}
+					tweet = tweet.Trim();
 					
 					OAuthTokens token = new OAuthTokens() {
 						AccessToken = cfg.AccessToken.Token,
@@ -51,24 +61,28 @@ namespace s7.twt
 					};
 					
 					TwitterResponse<TwitterStatus> response = TwitterStatus.Update(token,tweet);
-					if (response.Result == RequestResult.Success)
+					if(!quiet) 
 					{
-						if (!Growler.Growl(Growler.SuccessNotification, tweet))
-							System.Windows.Forms.MessageBox.Show("Tweeted!",tweet);
+						if (response.Result == RequestResult.Success)
+						{
+							if (!Growler.Growl(Growler.SuccessNotification, tweet))
+								System.Windows.Forms.MessageBox.Show("Tweeted!",tweet);
+						}
+						else
+						{
+							if (!Growler.Growl(Growler.ErrorNotification, "Tweet not posted: "+response.ErrorMessage))
+								System.Windows.Forms.MessageBox.Show("Tweet was not posted.",response.ErrorMessage);
+						}
 					}
-					else
-					{
-						if (!Growler.Growl(Growler.ErrorNotification, "Tweet not posted: "+response.ErrorMessage))
-							System.Windows.Forms.MessageBox.Show("Tweet was not posted.",response.ErrorMessage);
-					}
-                }
-            }
-            catch (Exception e)
-            {
-                if (!Growler.Growl(Growler.ErrorNotification, e.Message))
-                    System.Windows.Forms.MessageBox.Show(e.Message,"Error");
-            }
-        }
+				}
+			}
+			catch (Exception e)
+			{
+				if(!quiet)
+					if (!Growler.Growl(Growler.ErrorNotification, e.Message))
+						System.Windows.Forms.MessageBox.Show(e.Message,"Error");
+			}
+		}
 		
 		public static DialogResult InputBox(string title, string promptText, ref string value)
 		{
