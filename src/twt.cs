@@ -31,7 +31,7 @@ namespace s7.twt
 					if (InputBox("Enter authorization pin for twt", "Please enter the PIN number from the opened webpage to authorize twt:", ref verifier) == DialogResult.OK)
 					{
 						OAuthTokenResponse accessToken = OAuthUtility.GetAccessToken(ConsumerKey, ConsumerSecret, requestToken.Token, verifier);
-						Cfg.cmDoConfig cfg = new Cfg.cmDoConfig() { AccessToken = accessToken };
+						Cfg.cmDoConfig cfg = new Cfg.cmDoConfig() { AccessToken = accessToken, QuietMode = false };
 						cfg.Save();
 					}
 					
@@ -43,6 +43,32 @@ namespace s7.twt
 					if (!Cfg.cmDoConfig.Exists)
 						throw new System.IO.FileNotFoundException("Could not find the configuration file with authentication information.\nPlease run twt with the -config argument.",Cfg.cmDoConfig.ConfigPath);
 					Cfg.cmDoConfig cfg = Cfg.cmDoConfig.Load();
+					
+					if(args.Length > 2 && args[0].ToLower() == "-set")
+					{
+						switch(args[1].ToLower())
+						{
+							case "quiet":
+								bool quietparam;
+								if (bool.TryParse(args[2], out quietparam))
+								{
+									cfg.QuietMode = quietparam;
+									cfg.Save(); 
+									if (!Growler.Growl(Growler.GeneralNotification, "Settings", "Quiet mode is now " + (quietparam ? "on" : "off") + "."))
+										System.Windows.Forms.MessageBox.Show("Quiet mode is now " + (quietparam ? "on" : "off") + ".", "twt Settings");
+								}
+								else
+								{
+									throw new Exception("'-set quiet' expects 'true' or 'false' as a parameter.");
+								}
+								break;
+						}
+						return;
+					}
+
+
+					if (!quiet)
+						quiet = cfg.QuietMode;
 					
 					string tweet = string.Empty;
 					foreach (string word in args)
